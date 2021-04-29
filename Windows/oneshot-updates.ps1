@@ -1,6 +1,8 @@
 # This can be easily pasted into a remote PowerShell session to automatically install any available updates and reboot. 
 # It creates a scheduled task to start the update process after a one-minute delay so that you don't have to maintain
 # the session during the process (or have the session timeout), and it also sets the task to automatically delete itself 2 hours later.
+#
+# This leverages the Windows Update Provider PowerShell module which is included in Windows 10 1709+ and Windows Server 2019.
 # 
 # Adapted from https://iamsupergeek.com/self-deleting-scheduled-task-via-powershell/
 
