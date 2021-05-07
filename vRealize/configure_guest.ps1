@@ -8,28 +8,16 @@ function handler($context, $inputs) {
     $domainLong = $inputs.customProperties.dnsDomain
     $adminsList = $inputs.customProperties.adminsList
     
-    # Standardize users entered without domain as DOMAIN\username
-    If ($adminsList.Length -gt 0) {
-        $domainShort = $domainLong.split('.')[0]
-        $adminsArray = @(($adminsList -Split ',').Trim())
-        For ($i=0; $i -lt $adminsArray.Length; $i++) {
-            If ($adminsArray[$i] -notmatch "$domainShort.*\\" -And $adminsArray[$i] -notmatch "@$domainShort") {
-                $adminsArray[$i] = $domainShort + "\" + $adminsArray[$i]
-            }
-    }
-    $admins = '"{0}"' -f ($adminsArray -join '","')
-    Write-Host "Administrators: $admins"
-    }
     # Create vmtools connection to the VM 
     $name = $inputs.resourceNames[0]
     Connect-ViServer $vCenter -User $vcUser -Password $vcPassword -Force
-    Write-Host "Waiting for VM Tools to start..."
-    do {
-        $toolsStatus = (Get-VM -Name $name | Get-View).Guest.ToolsStatus 
-        Write-Host $toolsStatus
-        sleep 3
-    } until ($toolsStatus -eq 'toolsOk')
     $vm = Get-VM -Name $name
+    Write-Host "Updating VM Tools..."
+    Update-Tools $vm
+    Write-Host "Waiting for VM Tools to start..."
+    if (-not (Wait-Tools -VM $vm -TimeoutSeconds 180)) {
+        Write-Error "Unable to establish connection with VM tools" -ErrorAction Stop
+    }
     
     # Detect hostname and OS type
     $hostname = ($vm | Get-View).Guest.HostName.toLower()
@@ -41,6 +29,18 @@ function handler($context, $inputs) {
     if ($osType.Equals("windowsGuest")) {
         # Add domain accounts to local administrators group
         if ($adminsList.Length -gt 0) {
+            # Standardize users entered without domain as DOMAIN\username
+            if ($adminsList.Length -gt 0) {
+                $domainShort = $domainLong.split('.')[0]
+                $adminsArray = @(($adminsList -Split ',').Trim())
+                For ($i=0; $i -lt $adminsArray.Length; $i++) {
+                    If ($adminsArray[$i] -notmatch "$domainShort.*\\" -And $adminsArray[$i] -notmatch "@$domainShort") {
+                        $adminsArray[$i] = $domainShort + "\" + $adminsArray[$i]
+                    }
+            }
+            $admins = '"{0}"' -f ($adminsArray -join '","')
+            Write-Host "Administrators: $admins"
+            }
             $adminScript = "Add-LocalGroupMember -Group Administrators -Member $admins"
             Start-Sleep -s 10
             Write-Host "Attempting to add administrator accounts..."
@@ -65,8 +65,23 @@ function handler($context, $inputs) {
             Write-Host "Attempt to extend system volume completed with warnings:"
             Write-Host "==========================================================`n" $runPartitionScript.ScriptOutput "=========================================================="            
         }
-        # Create scheduled task to apply updates and reboot
-        $updateScript = "`$action = New-ScheduledTaskAction -Execute 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -Command `"& {Install-WUUpdates -Updates (Start-WUScan); if (Get-WUIsPendingReboot) {Restart-Computer -Force}}`"'
+        # Set up remote access
+        $remoteScript = "Enable-NetFirewallRule -DisplayGroup `"Remote Desktop`"
+            Enable-NetFirewallRule -DisplayGroup `"Windows Management Instrumentation (WMI)`"
+            Enable-NetFirewallRule -DisplayGroup `"File and Printer Sharing`"
+            Enable-PsRemoting
+            Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name `"fDenyTSConnections`" -Value 0"
+        Start-Sleep -s 10
+        Write-Host "Attempting to enable remote access (RDP, WMI, File and Printer Sharing, PSRemoting)..."
+        $runRemoteScript = Invoke-VMScript -VM $vm -ScriptText $remoteScript -GuestUser $template_user -GuestPassword $template_password -ToolsWaitSecs 300
+        if ($runRemoteScript.ScriptOutput.Length -eq 0) {
+            Write-Host "Successfully enabled remote access."
+        } else {
+            Write-Host "Attempt to enable remote access completed with warnings:"
+            Write-Host "==========================================================`n" $runRemoteScript.ScriptOutput "=========================================================="            
+        }
+        # Create scheduled task to apply updates
+        $updateScript = "`$action = New-ScheduledTaskAction -Execute 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -Command `"& {Install-WUUpdates -Updates (Start-WUScan)}`"'
             `$trigger = New-ScheduledTaskTrigger -Once -At ([DateTime]::Now.AddMinutes(1))
             `$settings = New-ScheduledTaskSettingsSet -Compatibility Win8 -Hidden
             Register-ScheduledTask -Action `$action -Trigger `$trigger -Settings `$settings -TaskName `"Initial_Updates`" -User `"NT AUTHORITY\SYSTEM`" -RunLevel Highest
@@ -79,7 +94,7 @@ function handler($context, $inputs) {
             `$task.Settings.Volatile = `$False
             `$task | Set-ScheduledTask"
         Start-Sleep -s 10
-        Write-Host "Creating a scheduled task to apply updates and reboot..."
+        Write-Host "Creating a scheduled task to apply updates..."
         $runUpdateScript = Invoke-VMScript -VM $vm -ScriptText $updateScript -GuestUser $template_user -GuestPassword $template_password -ToolsWaitSecs 300
         Write-Host "Created task:"
         Write-Host "==========================================================`n" $runUpdateScript.ScriptOutput "=========================================================="            
