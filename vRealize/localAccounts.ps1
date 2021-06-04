@@ -70,8 +70,8 @@ function handler($context, $inputs) {
     [string]$adminPass = $null
     [string]$userPass = $null
     # ASCII character codes for:
-    #        [0 - 9]     [A - Z]    [a - z]    [!]  [#$%&]      [()*+]   [-]
-    $chars = (48..57) + (65..90) + (97..122) + 33 + (35..38) + (40..43) + 45
+    #        [0 - 9]     [A - Z]    [a - z]    [!]  [#]  [%&]        [()*+]   [-]
+    $chars = (48..57) + (65..90) + (97..122) + 33 + 35 + (37..38) + (40..43) + 45
     $chars | Get-Random -Count $length | ForEach-Object { $adminPass += [char]$_ }
     $chars | Get-Random -Count $length | ForEach-Object { $userPass += [char]$_ }
     
