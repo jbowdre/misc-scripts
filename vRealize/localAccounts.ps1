@@ -36,11 +36,11 @@ function handler($context, $inputs) {
     $thycUser = $inputs.thycUser
     $thycPass = $context.getSecret($inputs."thycoticPassword")
     $thycFolderId = $inputs.thycFolderId
+    $thycTemplateId = $inputs.thycTemplateId
     
     $adminUser = $inputs.adminUser
     $username = $inputs.customProperties.username
     $templateUser = $inputs.customProperties.templateUser
-
 
     ##
     # Create vmtools connection to the VM
@@ -51,8 +51,8 @@ function handler($context, $inputs) {
         Write-Error "Unable to establish connection with VM tools" -ErrorAction Stop
     }
     # Detect OS family (win/lin)
-    $osType = ($vm | Get-View).Guest.GuestFamily
-    $toolsStatus = ($vm | Get-View).Guest.ToolsStatus
+    $osType = ($vm | Get-View).Guest.GuestFamily.ToString()
+    $toolsStatus = ($vm | Get-View).Guest.ToolsStatus.ToString()
     Write-Host "$vmName is a $osType and its tools status is $toolsStatus."
     # Update tools on Windows if out of date
     if ($osType.Equals("windowsGuest") -And $toolsStatus.Equals("toolsOld")) {
@@ -64,7 +64,6 @@ function handler($context, $inputs) {
         }
     }
 
-
     ##
     # Generate random passwords
     $length = 20
@@ -75,36 +74,34 @@ function handler($context, $inputs) {
     $chars = (48..57) + (65..90) + (97..122) + 33 + (35..38) + (40..43) + 45
     $chars | Get-Random -Count $length | ForEach-Object { $adminPass += [char]$_ }
     $chars | Get-Random -Count $length | ForEach-Object { $userPass += [char]$_ }
-
-
+    
     ##
     # Create accounts in guest
     if ($osType.Equals("windowsGuest")){
-        $templatePass = $context.getSecret($inputs."templatePassWinWorkgroup")
+        $templatePass = $context.getSecret($inputs.templatePassWinWorkgroup)
         $adminAccountScript = "`$password = ConvertTo-SecureString `"$adminPass`" -AsPlainText -Force
             New-LocalUser -Name $adminUser -Password `$password -Description 'Administrator account created by vRA'
             Add-LocalGroupMember -Group Administrators -Member $adminUser"
         Write-Host "Creating local admin account $adminUser..."
-        $runScript = Invoke-VM -VM $vm -ScriptText $adminAccountScript -GuestUser $templateUser -GuestPassword $templatePass
-        Write-Host "Result:`n" $runScript.ScriptOutput "`n`n"            
+        $runScript = Invoke-VMScript -VM $vm -ScriptText $adminAccountScript -GuestUser "$templateUser" -GuestPassword "$templatePass"
+        Write-Host "Result:`n" $runScript.ScriptOutput "`n"            
         $userAccountScript = "`$password = ConvertTo-SecureString `"$userPass`" -AsPlainText -Force
             New-LocalUser -Name $username -Password `$password -Description 'User account created by vRA'
             Add-LocalGroupMember -Group Administrators -Member $username"
         Write-Host "Creating local user account $username..."
-        $runScript = Invoke-VM -VM $vm -ScriptText $userAccountScript -GuestUser $templateUser -GuestPassword $templatePass
-        Write-Host "Result:`n" $runScript.ScriptOutput "`n`n"
+        $runScript = Invoke-VMScript -VM $vm -ScriptText $userAccountScript -GuestUser "$templateUser" -GuestPassword "$templatePass"
+        Write-Host "Result:`n" $runScript.ScriptOutput "`n"
     } elseif ($osType.Equals("linuxGuest")) {
-        $templatePass = $context.getSecret($inputs."templatePassLin")
+        $templatePass = $context.getSecret($inputs.templatePassLin)
         $adminAccountScript = "if [ `$(getent group wheel) ]; then adminGroup='-G wheel'; elif [ `$(getent group sudo) ]; then adminGroup='-G sudo'; fi; useradd -s /bin/bash `$adminGroup -m $adminUser; echo `"$adminUser`:$adminPass`" | chpasswd; chage -M -1 $adminUser"
         Write-Host "Creating local admin account $adminUser..."
-        $runScript = Invoke-VM -VM $vm -ScriptText $adminAccountScript -GuestUser $templateUser -GuestPassword $templatePass
-        Write-Host "Result:`n" $runScript.ScriptOutput "`n`n"            
+        $runScript = Invoke-VMScript -VM $vm -ScriptText $adminAccountScript -GuestUser "$templateUser" -GuestPassword "$templatePass"
+        Write-Host "Result:`n" $runScript.ScriptOutput "`n"            
         $userAccountScript = "if [ `$(getent group wheel) ]; then adminGroup='-G wheel'; elif [ `$(getent group sudo) ]; then adminGroup='-G sudo'; fi; useradd -s /bin/bash `$adminGroup -m $username; echo `"$username`:$userPass`" | chpasswd; passwd -e $username"
         Write-Host "Creating local user account $username..."
-        $runScript = Invoke-VM -VM $vm -ScriptText $userAccountScript -GuestUser $templateUser -GuestPassword $templatePass
-        Write-Host "Result:`n" $runScript.ScriptOutput "`n`n"            
+        $runScript = Invoke-VMScript -VM $vm -ScriptText $userAccountScript -GuestUser "$templateUser" -GuestPassword "$templatePass"
+        Write-Host "Result:`n" $runScript.ScriptOutput "`n"            
     }
-
 
     ##
     # Deliver user account creds via LiquidFiles
@@ -135,7 +132,7 @@ Reach out to the server team if you run into issues."
             expires_after = 3
         }
     }
-
+    
     $Parameters = @{
         Method = "Post"
         Uri = "$liquidUrl/message"
@@ -149,7 +146,7 @@ Reach out to the server team if you run into issues."
     }
 
     Write-Host "Sending initial creds to $messageToEmail via Liquid Files..."
-    $sendMessage = Invoke-RestMethod @Parameters
+    $sendMessage = Invoke-RestMethod @Parameters -ErrorAction Continue
     if ($sendMessage.message.id.length -gt 0) {
         Write-Host "Secure message sent, ID: $($sendMessage.message.id)"
     } else {
@@ -176,20 +173,21 @@ Reach out to the server team if you run into issues."
         SkipCertificateCheck = $true
     }
 
-    $response = Invoke-RestMethod @Parameters
+    $response = Invoke-RestMethod @Parameters -ErrorAction Continue
     $token = $response.access_token
     $headers = @{
         "Authorization" = "Bearer $token"
     }
-
+    
     $Parameters = @{
-        Uri = "$thycApi/secrets/stub?filter.secretTemplateId=$thycTemplateId"
+        Uri = "$thycApi/secrets/stub?filter.SecretTemplateId=$thycTemplateId"
         Method = "Get"
         Headers = $headers
         # Remove for production
         SkipCertificateCheck = $true
     }
-    $secret = Invoke-RestMethod @Parameters
+    
+    $secret = Invoke-RestMethod @Parameters -ErrorAction Continue
 
     $secret.name = "$vmName admin"
     $secret.secretTemplateId = $thycTemplateId
@@ -213,6 +211,7 @@ Reach out to the server team if you run into issues."
     }
 
     $secretArgs = $secret | ConvertTo-Json
+
     $Parameters = @{
         Uri = "$thycApi/secrets/"
         Method = "Post"
@@ -222,7 +221,10 @@ Reach out to the server team if you run into issues."
         # Remove for production
         SkipCertificateCheck = $true
     } 
-    $createSecret = Invoke-RestMethod @Parameters
+
+    Write-Host "Storing credential for $adminUser in Thycotic..."
+    $createSecret = Invoke-RestMethod @Parameters -ErrorAction Continue
+    
     if ($createSecret.id -gt 0) {
         Write-Host "Secret created, ID: $($createSecret.id)"
     } else {
@@ -233,3 +235,5 @@ Reach out to the server team if you run into issues."
     Disconnect-ViServer -Server * -Force -Confirm:$false
 
 }
+
+
