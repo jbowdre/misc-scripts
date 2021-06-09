@@ -233,8 +233,8 @@ Reach out to the server team if you run into issues."
     
     if ($createSecret.id -gt 0) {
         Write-Host "Secret created, ID: $($createSecret.id)"
-	$inputs.customProperties.thycSecretId = $createSecret.id
-	return $inputs
+        $inputs.customProperties.thycSecretId = $createSecret.id
+        return $inputs
     } else {
         Write-Host "Secret not created successfully. Output:`n$($createSecret | ConvertTo-Json)"
     }
