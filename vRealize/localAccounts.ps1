@@ -1,3 +1,9 @@
+<# vRA 8.x ABX Action to handle local accounts on a provisioned VM by:
+    - Generating complex randomized passwords for the VM requester and a server admin account
+    - Creating accounts in the guest with the set passwords
+    - Sending the requester's credentials securely via LiquidFiles
+    - Storing the server admin credentials in Thycotic Secret Server
+#>
 <# Action Secrets:
     templatePassWinWorkgroup            # built-in admin password on source template
     templatePassLin                     # built-in admin password on source template
@@ -227,6 +233,8 @@ Reach out to the server team if you run into issues."
     
     if ($createSecret.id -gt 0) {
         Write-Host "Secret created, ID: $($createSecret.id)"
+	$inputs.customProperties.thycSecretId = $createSecret.id
+	return $inputs
     } else {
         Write-Host "Secret not created successfully. Output:`n$($createSecret | ConvertTo-Json)"
     }
