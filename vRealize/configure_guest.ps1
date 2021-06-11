@@ -1,13 +1,42 @@
+<# vRA 8.x ABX action to perform certain in-guest actions post-deploy:
+    Windows:
+        - auto-update VM tools
+        - add specified domain users/groups to local Administrators group
+        - extend C: volume to fill disk
+        - set up remote access
+        - create a scheduled task to (attempt to) apply Windows updates
+    Linux: 
+        - run script from NFS share to extend root partition
+            - https://github.com/jbowdre/misc-scripts/blob/main/Linux/extend_root_volume.sh
+        - run script from NFS share to register with organization's Satellite server
+    
+    ## Action Secrets:
+        templatePassWinDomain               # password for domain account with admin rights to the template (domain-joined deployments)
+        templatePassWinWorkgroup            # password for local account with admin rights to the template (standalone deployments)
+        templatePassLin                     # password for local account with admin rights on Linux deployments
+        vCenterPassword                     # password for vCenter account passed from the cloud template
+    
+    ## Action Inputs:
+
+    ## Inputs from deployment:
+        resourceNames[0]                    # VM name [BOW-DVRT-XXX003]
+        customProperties.vCenterUser        # user for connecting to vCenter [lab\vra]
+        customProperties.vCenter            # vCenter instance to connect to [vcsa.lab.bowdre.net]
+        customProperties.dnsDomain          # long-form domain name [lab.bowdre.net]
+        customProperties.adminsList         # list of domain users/groups to be added as local admins [john, lab\vra, vRA-Admins]
+        customProperties.adobject           # boolean for if this will be a domain-joined system [$true]
+        customProperties.templateUser       # username used for connecting to the VM through vmtools [Administrator] / [root]
+        customProperties.fillDisk           # boolean for if root partition should fill the physical disk [$true]
+        customProperties.nfsScriptShare     # NFS share where the Linux scripts reside [deb01.lab.bowdre.net:/share]
+        customProperties.partitionScript    # Linux script for extending root partition [extend_root_partition.sh]
+        customProperties.satelliteScript    # Linux script for registering with organization's Satellite server [register_satellite.sh]
+#>
+
 function handler($context, $inputs) {
     # Initialize global variables
-    # $template_password = $context.getSecret($inputs.customProperties.template_password)
-    # $template_user = $inputs.customProperties.template_user
     $vcUser = $inputs.customProperties.vCenterUser
-    # $vcPassword = $context.getSecret($inputs.customProperties.vCenterPassword)
     $vcPassword = $context.getSecret($inputs."vCenterPassword")
     $vCenter = $inputs.customProperties.vCenter
-    # $domainLong = $inputs.customProperties.dnsDomain
-    # $adminsList = $inputs.customProperties.adminsList
     
     # Create vmtools connection to the VM 
     $name = $inputs.resourceNames[0]
@@ -41,8 +70,8 @@ function handler($context, $inputs) {
         $domainLong = $inputs.customProperties.dnsDomain
         $adminsList = $inputs.customProperties.adminsList
         $adJoin = $inputs.customProperties.adObject
-        $template_user = $inputs.customProperties.template_user
-        $template_password = $adJoin.Equals("true") ? $context.getSecret($inputs."templatePassWinDomain") : $context.getSecret($inputs."templatePassWinWorkgroup")
+        $templateUser = $inputs.customProperties.template_user
+        $templatePassword = $adJoin.Equals("true") ? $context.getSecret($inputs."templatePassWinDomain") : $context.getSecret($inputs."templatePassWinWorkgroup")
       
         # Add domain accounts to local administrators group
         if ($adminsList.Length -gt 0) {
@@ -61,7 +90,7 @@ function handler($context, $inputs) {
             $adminScript = "Add-LocalGroupMember -Group Administrators -Member $admins"
             Start-Sleep -s 10
             Write-Host "Attempting to add administrator accounts..."
-            $runAdminScript = Invoke-VMScript -VM $vm -ScriptText $adminScript -GuestUser $template_user -GuestPassword $template_password
+            $runAdminScript = Invoke-VMScript -VM $vm -ScriptText $adminScript -GuestUser $templateUser -GuestPassword $templatePassword
             if ($runAdminScript.ScriptOutput.Length -eq 0) {
                 Write-Host "Successfully added [$admins] to Administrators group."
             } else {
@@ -71,27 +100,11 @@ function handler($context, $inputs) {
         } else {
             Write-Host "No admins to add..."
         }
-        # Create local admin account
-        if (! $adJoin.Equals("true")) {
-            $adminUser = $inputs.customProperties.adminUser
-            $adminPass = $context.getSecret($inputs.customProperties.adminPass)
-            $adminScript = "`$password = ConvertTo-SecureString `"$adminPass`" -AsPlainText -Force
-                New-LocalUser -Name $adminUser -Password `$password -Description 'Administrator account created by vRA'
-                Add-LocalGroupMember -Group Administrators -Member $adminUser
-                `$user=[ADSI]`"WinNT://localhost/$adminUser`";
-                `$user.passwordExpired = 1;
-                `$user.setinfo();"
-            Start-Sleep -s 10
-            Write-Host "Creating local admin account..."
-            $runAdminScript = Invoke-VMScript -VM $vm -ScriptText $adminScript -GuestUser $template_user -GuestPassword $template_password
-            Write-Host "Result:"
-            Write-Host "==========================================================`n" $runAdminScript.ScriptOutput "=========================================================="            
-        }
         # Extend C: volume to fill system drive
         $partitionScript = "`$Partition = Get-Volume -DriveLetter C | Get-Partition; `$Partition | Resize-Partition -Size (`$Partition | Get-PartitionSupportedSize).sizeMax"
         Start-Sleep -s 10
         Write-Host "Attempting to extend system volume..."
-        $runPartitionScript = Invoke-VMScript -VM $vm -ScriptText $partitionScript -GuestUser $template_user -GuestPassword $template_password
+        $runPartitionScript = Invoke-VMScript -VM $vm -ScriptText $partitionScript -GuestUser $templateUser -GuestPassword $templatePassword
         if ($runPartitionScript.ScriptOutput.Length -eq 0) {
             Write-Host "Successfully extended system partition."
         } else {
@@ -106,7 +119,7 @@ function handler($context, $inputs) {
             Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name `"fDenyTSConnections`" -Value 0"
         Start-Sleep -s 10
         Write-Host "Attempting to enable remote access (RDP, WMI, File and Printer Sharing, PSRemoting)..."
-        $runRemoteScript = Invoke-VMScript -VM $vm -ScriptText $remoteScript -GuestUser $template_user -GuestPassword $template_password
+        $runRemoteScript = Invoke-VMScript -VM $vm -ScriptText $remoteScript -GuestUser $templateUser -GuestPassword $templatePassword
         if ($runRemoteScript.ScriptOutput.Length -eq 0) {
             Write-Host "Successfully enabled remote access."
         } else {
@@ -128,41 +141,33 @@ function handler($context, $inputs) {
             `$task | Set-ScheduledTask"
         Start-Sleep -s 10
         Write-Host "Creating a scheduled task to apply updates..."
-        $runUpdateScript = Invoke-VMScript -VM $vm -ScriptText $updateScript -GuestUser $template_user -GuestPassword $template_password
+        $runUpdateScript = Invoke-VMScript -VM $vm -ScriptText $updateScript -GuestUser $templateUser -GuestPassword $templatePassword
         Write-Host "Created task:"
         Write-Host "==========================================================`n" $runUpdateScript.ScriptOutput "=========================================================="            
     } elseif ($osType.Equals("linuxGuest")) {
-        $linUser = $inputs.customProperties.userName
-        $linPass = $context.getSecret($inputs.customProperties.password)
-        $template_user = $inputs.customProperties.template_user
-        $template_password = $context.getSecret($inputs."templatePassLin")
-        $linFillDisk = $inputs.customProperties.fillDisk
-        $linSatellite = $inputs.customProperties.satellite
-        $linNfsScriptShare = $inputs.customProperties.nfsScriptShare
-        $linPartitionScript = $inputs.customProperties.partitionScript
-        $linSatelliteScript = $inputs.customProperties.satelliteScript
-        # Create Linux admin account
-        Write-Host "Attempting to create user $linUser..."
-        $userScript = "if [ `$(getent group wheel) ]; then adminGroup='-G wheel'; elif [ `$(getent group sudo) ]; then adminGroup='-G sudo'; fi; useradd -s /bin/bash `$adminGroup -m $linUser; echo `"$linUser`:$linPass`" | chpasswd; passwd -e $linUser"
-        Start-Sleep -s 10
-        $runUserScript = Invoke-VMScript -VM $vm -ScriptText $userScript -GuestUser $template_user -GuestPassword $template_password
-        Write-Host "Result:"
-        Write-Host "==========================================================`n" $runUserScript.ScriptOutput "=========================================================="            
+        # Initialize Linux variables
+        $templateUser = $inputs.customProperties.templateUser
+        $templatePassword = $context.getSecret($inputs."templatePassLin")
+        $fillDisk = $inputs.customProperties.fillDisk
+        $satellite = $inputs.customProperties.satellite
+        $nfsScriptShare = $inputs.customProperties.nfsScriptShare
+        $partitionScriptName = $inputs.customProperties.partitionScript
+        $satelliteScriptName = $inputs.customProperties.satelliteScript
         # Extend root LVM to fill VMDK
-        if ($linFillDisk -eq $True) {
+        if ($fillDisk -eq $True) {
             Write-Host "Attempting to expand root partition..."
-            $partitionScript = "mkdir -p /repo; mount -t nfs $linNfsScriptShare /repo; /repo/$linPartitionScript; umount /repo; rm -rf /repo"
+            $partitionScript = "mkdir -p /repo; mount -t nfs $nfsScriptShare /repo; /repo/$partitionScriptName; umount /repo; rm -rf /repo"
             Start-Sleep -s 10
-            $runPartitionScript = Invoke-VMScript -VM $vm -ScriptText $partitionScript -GuestUser $template_user -GuestPassword $template_password
+            $runPartitionScript = Invoke-VMScript -VM $vm -ScriptText $partitionScript -GuestUser $templateUser -GuestPassword $templatePassword
             Write-Host "Result:"
             Write-Host "==========================================================`n" $runPartitionScript.ScriptOutput "=========================================================="            
         }
         # Register with Satellite
-        if ($linSatellite -eq $True) {
-            Write-Host "Attempting to register with TDY Satellite..."
-            $satelliteScript = "mkdir -p /repo; mount -t nfs $linNfsScriptShare /repo; /repo/$linSatelliteScript; umount /repo; rm -rf /repo"
+        if ($satellite -eq $True) {
+            Write-Host "Attempting to register with Satellite..."
+            $satelliteScript = "mkdir -p /repo; mount -t nfs $nfsScriptShare /repo; /repo/$satelliteScriptName; umount /repo; rm -rf /repo"
             Start-Sleep 10
-            $runSatelliteScript = Invoke-VMScript -VM $vm -ScriptText $satelliteScript -GuestUser $template_user -GuestPassword $template_password
+            $runSatelliteScript = Invoke-VMScript -VM $vm -ScriptText $satelliteScript -GuestUser $templateUser -GuestPassword $templatePassword
             Write-Host "Result:"
             Write-Host "==========================================================`n" $runSatelliteScript.ScriptOutput "=========================================================="            
         }
