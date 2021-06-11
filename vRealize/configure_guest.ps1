@@ -39,9 +39,9 @@ function handler($context, $inputs) {
     $vCenter = $inputs.customProperties.vCenter
     
     # Create vmtools connection to the VM 
-    $name = $inputs.resourceNames[0]
+    $vmName = $inputs.resourceNames[0]
     Connect-ViServer $vCenter -User $vcUser -Password $vcPassword -Force
-    $vm = Get-VM -Name $name
+    $vm = Get-VM -Name $vmName
     Write-Host "Waiting for VM Tools to start..."
     if (-not (Wait-Tools -VM $vm -TimeoutSeconds 180)) {
         Write-Error "Unable to establish connection with VM tools" -ErrorAction Stop
