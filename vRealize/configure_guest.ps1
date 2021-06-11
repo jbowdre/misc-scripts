@@ -94,8 +94,7 @@ function handler($context, $inputs) {
             if ($runAdminScript.ScriptOutput.Length -eq 0) {
                 Write-Host "Successfully added [$admins] to Administrators group."
             } else {
-                Write-Host "Attempt to add [$admins] to Administrators group completed with warnings:"
-                Write-Host "==========================================================`n" $runAdminScript.ScriptOutput "=========================================================="
+                Write-Host "Attempt to add [$admins] to Administrators group completed with warnings:`n" $runAdminScript.ScriptOutput "`n"
             }
         } else {
             Write-Host "No admins to add..."
@@ -108,8 +107,7 @@ function handler($context, $inputs) {
         if ($runPartitionScript.ScriptOutput.Length -eq 0) {
             Write-Host "Successfully extended system partition."
         } else {
-            Write-Host "Attempt to extend system volume completed with warnings:"
-            Write-Host "==========================================================`n" $runPartitionScript.ScriptOutput "=========================================================="            
+            Write-Host "Attempt to extend system volume completed with warnings:`n" $runPartitionScript.ScriptOutput "`n"
         }
         # Set up remote access
         $remoteScript = "Enable-NetFirewallRule -DisplayGroup `"Remote Desktop`"
@@ -123,8 +121,7 @@ function handler($context, $inputs) {
         if ($runRemoteScript.ScriptOutput.Length -eq 0) {
             Write-Host "Successfully enabled remote access."
         } else {
-            Write-Host "Attempt to enable remote access completed with warnings:"
-            Write-Host "==========================================================`n" $runRemoteScript.ScriptOutput "=========================================================="            
+            Write-Host "Attempt to enable remote access completed with warnings:`n" $runRemoteScript.ScriptOutput "`n"
         }
         # Create scheduled task to apply updates
         $updateScript = "`$action = New-ScheduledTaskAction -Execute 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -Command `"& {Install-WUUpdates -Updates (Start-WUScan)}`"'
@@ -142,8 +139,7 @@ function handler($context, $inputs) {
         Start-Sleep -s 10
         Write-Host "Creating a scheduled task to apply updates..."
         $runUpdateScript = Invoke-VMScript -VM $vm -ScriptText $updateScript -GuestUser $templateUser -GuestPassword $templatePassword
-        Write-Host "Created task:"
-        Write-Host "==========================================================`n" $runUpdateScript.ScriptOutput "=========================================================="            
+        Write-Host "Created task:`n" $runUpdateScript.ScriptOutput "`n"            
     } elseif ($osType.Equals("linuxGuest")) {
         # Initialize Linux variables
         $templateUser = $inputs.customProperties.templateUser
@@ -159,8 +155,7 @@ function handler($context, $inputs) {
             $partitionScript = "mkdir -p /repo; mount -t nfs $nfsScriptShare /repo; /repo/$partitionScriptName; umount /repo; rm -rf /repo"
             Start-Sleep -s 10
             $runPartitionScript = Invoke-VMScript -VM $vm -ScriptText $partitionScript -GuestUser $templateUser -GuestPassword $templatePassword
-            Write-Host "Result:"
-            Write-Host "==========================================================`n" $runPartitionScript.ScriptOutput "=========================================================="            
+            Write-Host "Result:`n" $runPartitionScript.ScriptOutput "`n"            
         }
         # Register with Satellite
         if ($satellite -eq $True) {
@@ -168,8 +163,7 @@ function handler($context, $inputs) {
             $satelliteScript = "mkdir -p /repo; mount -t nfs $nfsScriptShare /repo; /repo/$satelliteScriptName; umount /repo; rm -rf /repo"
             Start-Sleep 10
             $runSatelliteScript = Invoke-VMScript -VM $vm -ScriptText $satelliteScript -GuestUser $templateUser -GuestPassword $templatePassword
-            Write-Host "Result:"
-            Write-Host "==========================================================`n" $runSatelliteScript.ScriptOutput "=========================================================="            
+            Write-Host "Result:`n" $runSatelliteScript.ScriptOutput "`n"            
         }
     }
 }
