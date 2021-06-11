@@ -48,12 +48,9 @@ function handler($context, $inputs) {
     }
     
     # Detect hostname and OS type
-    $hostname = ($vm | Get-View).Guest.HostName.toLower()
-    Write-Host "VM hostname is $hostname"
-    $osType = ($vm | Get-View).Guest.GuestFamily
-    Write-Host "VM OS type is $osType"
-    $toolsStatus = (Get-VM -Name $name | Get-View).Guest.ToolsStatus 
-    
+    $osType = ($vm | Get-View).Guest.GuestFamily.ToString()
+    $toolsStatus = ($vm | Get-View).Guest.ToolsStatus.ToString()
+    Write-Host "$vmName is a $osType and its tools status is $toolsStatus."
     # Update tools on Windows if out of date
     if ($osType.Equals("windowsGuest") -And $toolsStatus.Equals("toolsOld")) {
         Write-Host "Updating VM Tools..."
