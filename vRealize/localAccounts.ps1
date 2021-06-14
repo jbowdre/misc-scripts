@@ -3,29 +3,29 @@
     - Creating accounts in the guest with the set passwords
     - Sending the requester's credentials securely via LiquidFiles
     - Storing the server admin credentials in Thycotic Secret Server
-#>
-<# Action Secrets:
-    templatePassWinWorkgroup            # built-in admin password on source template
-    templatePassLin                     # built-in admin password on source template
-    vCenterPassword                     # password for vCenter account passed from the template
-    thycoticPassword                    # password for Thycotic account passed as an action input
-    liquidApiKey                        # LiquidFiles API key for account used to send notifications
-#>
-<# Action Inputs:
-    liquidUrl                           # [https://liquid.lab.bowdre.net]
-    thycUrl                             # [https://thycc.lab.bowdre.net/SecretServer]
-    thycUser                            # Thycotic user account [lab\vra]
-    adminUser                           # name of admin account to be created [labAdmin]
-    thycFolderId                        # ID of folder in Thycotic where password should be created [8]
-    thycTemplateId                      # ID of the Secret Template to be used, recommend the standard "Password" one [2]
-#>
-<# Inputs from deployment
-    customProperties.vCenterUser        # user to connect to vCenter [lab\vra]
-    customProperties.vCenter            # vCenter instance to connect to [vcsa.lab.bowdre.net]
-    customProperties.templateUser       # default admin account on the template [Administrator] / [root]
-    resourceNames[0]                    # VM name [BOW-DVRT-XXX003]
-    customProperties.username           # desired name of "user" account to be created [john]
-    customProperties.poc                # Point of Contact from the request [John Bowdre (john@bowdre.net)]
+    
+    ## Action Secrets:
+        templatePassWinWorkgroup            # built-in admin password on source template
+        templatePassLin                     # built-in admin password on source template
+        vCenterPassword                     # password for vCenter account passed from the template
+        thycoticPassword                    # password for Thycotic account passed as an action input
+        liquidApiKey                        # LiquidFiles API key for account used to send notifications
+    
+    ## Action Inputs:
+        liquidUrl                           # [https://liquid.lab.bowdre.net]
+        thycUrl                             # [https://thycc.lab.bowdre.net/SecretServer]
+        thycUser                            # Thycotic user account [lab\vra]
+        adminUser                           # name of admin account to be created [labAdmin]
+        thycFolderId                        # ID of folder in Thycotic where password should be created [8]
+        thycTemplateId                      # ID of the Secret Template to be used, recommend the standard "Password" one [2]
+    
+    ## Inputs from deployment
+        customProperties.vCenterUser        # user to connect to vCenter [lab\vra]
+        customProperties.vCenter            # vCenter instance to connect to [vcsa.lab.bowdre.net]
+        customProperties.templateUser       # default admin account on the template [Administrator] / [root]
+        resourceNames[0]                    # VM name [BOW-DVRT-XXX003]
+        customProperties.username           # desired name of "user" account to be created [john]
+        customProperties.poc                # Point of Contact from the request [John Bowdre (john@bowdre.net)]
 #>
 
 function handler($context, $inputs) {
@@ -238,7 +238,6 @@ Reach out to the server team if you run into issues."
     } else {
         Write-Host "Secret not created successfully. Output:`n$($createSecret | ConvertTo-Json)"
     }
-
 
     Disconnect-ViServer -Server * -Force -Confirm:$false
 
