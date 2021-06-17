@@ -29,7 +29,7 @@
 #>
 
 function handler($context, $inputs) {
-    # Input variables
+    ## Input variables
     $vcUser = $inputs.customProperties.vCenterUser
     $vcPass = $context.getSecret($inputs."vCenterPassword")
     $vCenter = $inputs.customProperties.vCenter
@@ -48,8 +48,7 @@ function handler($context, $inputs) {
     $username = $inputs.customProperties.username
     $templateUser = $inputs.customProperties.templateUser
 
-    ##
-    # Create vmtools connection to the VM
+    ## Create vmtools connection to the VM
     Connect-ViServer $vCenter -User $vcUser -Password $vcPass -Force
     $vm = Get-VM -Name $vmName
     Write-Host "Waiting for VM Tools to start..."
@@ -70,8 +69,7 @@ function handler($context, $inputs) {
         }
     }
 
-    ##
-    # Generate random passwords
+    ## Generate random passwords
     $length = 20
     [string]$adminPass = $null
     [string]$userPass = $null
@@ -81,16 +79,17 @@ function handler($context, $inputs) {
     $chars | Get-Random -Count $length | ForEach-Object { $adminPass += [char]$_ }
     $chars | Get-Random -Count $length | ForEach-Object { $userPass += [char]$_ }
     
-    ##
-    # Create accounts in guest
+    ## Create accounts in guest
     if ($osType.Equals("windowsGuest")){
         $templatePass = $context.getSecret($inputs.templatePassWinWorkgroup)
+
         $adminAccountScript = "`$password = ConvertTo-SecureString `"$adminPass`" -AsPlainText -Force
             New-LocalUser -Name $adminUser -Password `$password -Description 'Administrator account created by vRA'
             Add-LocalGroupMember -Group Administrators -Member $adminUser"
         Write-Host "Creating local admin account $adminUser..."
         $runScript = Invoke-VMScript -VM $vm -ScriptText $adminAccountScript -GuestUser "$templateUser" -GuestPassword "$templatePass"
         Write-Host "Result:`n" $runScript.ScriptOutput "`n"            
+
         $userAccountScript = "`$password = ConvertTo-SecureString `"$userPass`" -AsPlainText -Force
             New-LocalUser -Name $username -Password `$password -Description 'User account created by vRA'
             Add-LocalGroupMember -Group Administrators -Member $username"
@@ -99,18 +98,18 @@ function handler($context, $inputs) {
         Write-Host "Result:`n" $runScript.ScriptOutput "`n"
     } elseif ($osType.Equals("linuxGuest")) {
         $templatePass = $context.getSecret($inputs.templatePassLin)
+        
         $adminAccountScript = "if [ `$(getent group wheel) ]; then adminGroup='-G wheel'; elif [ `$(getent group sudo) ]; then adminGroup='-G sudo'; fi; useradd -s /bin/bash `$adminGroup -m $adminUser; echo `"$adminUser`:$adminPass`" | chpasswd; chage -M -1 $adminUser"
         Write-Host "Creating local admin account $adminUser..."
         $runScript = Invoke-VMScript -VM $vm -ScriptText $adminAccountScript -GuestUser "$templateUser" -GuestPassword "$templatePass"
         Write-Host "Result:`n" $runScript.ScriptOutput "`n"            
+        
         $userAccountScript = "if [ `$(getent group wheel) ]; then adminGroup='-G wheel'; elif [ `$(getent group sudo) ]; then adminGroup='-G sudo'; fi; useradd -s /bin/bash `$adminGroup -m $username; echo `"$username`:$userPass`" | chpasswd; passwd -e $username"
         Write-Host "Creating local user account $username..."
         $runScript = Invoke-VMScript -VM $vm -ScriptText $userAccountScript -GuestUser "$templateUser" -GuestPassword "$templatePass"
-        Write-Host "Result:`n" $runScript.ScriptOutput "`n"            
     }
 
-    ##
-    # Deliver user account creds via LiquidFiles
+    ## Deliver user account creds via LiquidFiles
     $vmIpAddress = ($vm | Get-View).Guest.IpAddress
     $messageToFirstName = $inputs.customProperties.poc.Split(' ')[0] 
     $messageToEmail = $inputs.customProperties.poc.Split('(')[1].Split(')')[0] 
@@ -159,9 +158,7 @@ Reach out to the server team if you run into issues."
         Write-Host "Message not sent successfully. Output:`n($sendMessage | ConvertTo-Json)"
     }
 
-
-    ##
-    # Store admin account creds in Thycotic
+    ## Store admin account creds in Thycotic
     $thycApi = "$thycUrl/api/v1"
 
     # Authenticate to Thycotic
@@ -182,9 +179,10 @@ Reach out to the server team if you run into issues."
     $response = Invoke-RestMethod @Parameters -ErrorAction Continue
     $token = $response.access_token
     $headers = @{
-        "Authorization" = "Bearer $token"
+        Authorization = "Bearer $token"
     }
-    
+   
+    # Retrieve password template
     $Parameters = @{
         Uri = "$thycApi/secrets/stub?filter.SecretTemplateId=$thycTemplateId"
         Method = "Get"
@@ -195,9 +193,8 @@ Reach out to the server team if you run into issues."
     
     $secret = Invoke-RestMethod @Parameters -ErrorAction Continue
 
+    # Modify password template with the generated password
     $secret.name = "$vmName admin"
-    $secret.secretTemplateId = $thycTemplateId
-    $secret.autoChangeEnabled = $false
     $secret.siteId = 1
     $secret.folderId = $thycFolderId
 
@@ -218,6 +215,7 @@ Reach out to the server team if you run into issues."
 
     $secretArgs = $secret | ConvertTo-Json
 
+    # Submit the new secret
     $Parameters = @{
         Uri = "$thycApi/secrets/"
         Method = "Post"
@@ -239,6 +237,7 @@ Reach out to the server team if you run into issues."
         Write-Host "Secret not created successfully. Output:`n$($createSecret | ConvertTo-Json)"
     }
 
+    # Clean up vCenter connection
     Disconnect-ViServer -Server * -Force -Confirm:$false
 
 }

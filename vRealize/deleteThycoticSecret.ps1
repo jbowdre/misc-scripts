@@ -1,28 +1,24 @@
 <# vRA 8.x ABX Action to soft-delete Thycotic secrets when a deployment is deleted.
-#>
-<# Action Secrets:
-    thycoticPassword                    # password for Thycotic account passed as an action input
-#>
-<# Action Inputs:
-    thycUrl                             # [https://thycc.lab.bowdre.net/SecretServer]
-    thycUser                            # Thycotic user account [lab\vra]
-#>
-<# Inputs from deployment
-    customProperties.thycSecretId       # ID of secret to be archived
+    ## Action Secrets:
+        thycoticPassword                    # password for Thycotic account passed as an action input
+    
+    ## Action Inputs:
+        thycUrl                             # [https://thycc.lab.bowdre.net/SecretServer]
+        thycUser                            # Thycotic user account [lab\vra]
+    
+    ## Inputs from deployment
+        customProperties.thycSecretId       # ID of secret to be archived
 #>
 
 function handler($context, $inputs) {
-    # Input variables
+    ## Input variables
     $thycUrl = $inputs.thycUrl
     $thycUser = $inputs.thycUser
     $thycPass = $context.getSecret($inputs."thycoticPassword")
     $thycSecretId = $inputs.customProperties.thycSecretId
-
-    ##
-    # Store admin account creds in Thycotic
     $thycApi = "$thycUrl/api/v1"
 
-    # Authenticate to Thycotic
+    ## Authenticate to Thycotic
     $creds = @{
         username = $thycUser
         password = $thycPass
@@ -40,12 +36,13 @@ function handler($context, $inputs) {
     $response = Invoke-RestMethod @Parameters -ErrorAction Continue
     $token = $response.access_token
     $headers = @{
-        "Authorization" = "Bearer $token"
+        Authorization = "Bearer $token"
     }
-    
+   
+    ## Delete specified secret from Thycotic
     $Parameters = @{
         Uri = "$thycApi/secrets/$thycSecretId/"
-        Method = "DELETE"
+        Method = "Delete"
         Headers = $headers
         ContentType = "application/json"
         # Remove for production
@@ -59,5 +56,4 @@ function handler($context, $inputs) {
     } else {
         Write-Host "Secret may not have been deleted. Output:`n$($deleteSecret | ConvertTo-Json)"
     }
-
 }
