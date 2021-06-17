@@ -1,4 +1,5 @@
 <# vRA 8.x ABX Action to soft-delete Thycotic secrets when a deployment is deleted.
+
     ## Action Secrets:
         thycoticPassword                    # password for Thycotic account passed as an action input
     
