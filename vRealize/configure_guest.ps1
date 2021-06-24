@@ -47,7 +47,7 @@ function handler($context, $inputs) {
         Write-Error "Unable to establish connection with VM tools" -ErrorAction Stop
     }
     
-    # Detect hostname and OS type
+    # Detect OS type
     $count = 0
     While (!$osType) {
         Try {
