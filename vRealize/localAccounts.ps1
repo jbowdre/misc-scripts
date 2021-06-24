@@ -26,6 +26,8 @@
         resourceNames[0]                    # VM name [BOW-DVRT-XXX003]
         customProperties.username           # desired name of "user" account to be created [john]
         customProperties.poc                # Point of Contact from the request [John Bowdre (john@bowdre.net)]
+        customProperties.description        # VM purpose/description from the request [Dev web server for ERP]
+        customProperties.ticket             # Tracking ticket number from the request [RITM4815162342]
 #>
 
 function handler($context, $inputs) {
@@ -34,6 +36,9 @@ function handler($context, $inputs) {
     $vcPass = $context.getSecret($inputs."vCenterPassword")
     $vCenter = $inputs.customProperties.vCenter
     $vmName = $inputs.resourceNames[0]
+    $vmDescription = $inputs.customProperties.description
+    $vmTicket = $inputs.customProperties.ticket
+    $vmPoC = $inputs.customProperties.poc
 
     $liquidUrl = $inputs.liquidUrl
     $liquidApiKey = $context.getSecret($inputs."liquidApiKey")
@@ -111,8 +116,8 @@ function handler($context, $inputs) {
 
     ## Deliver user account creds via LiquidFiles
     $vmIpAddress = ($vm | Get-View).Guest.IpAddress
-    $messageToFirstName = $inputs.customProperties.poc.Split(' ')[0] 
-    $messageToEmail = $inputs.customProperties.poc.Split('(')[1].Split(')')[0] 
+    $messageToFirstName = $vmPoC.Split(' ')[0] 
+    $messageToEmail = $vmPoC.Split('(')[1].Split(')')[0] 
     $messageSubject = "Requested server credentials"
     $messageText = "Hi $messageToFirstName,
 
@@ -209,7 +214,7 @@ Reach out to the server team if you run into issues."
             $_.itemValue = "$adminPass"
         }
         ({$_.fieldName -eq "Notes"}) {
-            $_.itemValue = "Auto-generated password set by vRA"
+            $_.itemValue = "$vmDescription`n$vmPoC`n$vmTicket"
         }
     }
 
