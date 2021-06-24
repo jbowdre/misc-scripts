@@ -139,9 +139,7 @@ Here are the initial credentials for your account on $vmName at $vmIpAddress.
 You should change the password once you've logged in.
 
 `tUsername: $username
-`tPassword: $userPass
-
-Reach out to the server team if you run into issues."
+`tPassword: $userPass"
 
     $authToken = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $liquidApiKey,'')))
 
