@@ -5,9 +5,9 @@
 # Run it from the top level of a Jekyll blog directory for best results, and pass the 
 # filename of the blog post you'd like to process.
 #
-# Ex: ./imageMigration.sh 2021-07-19-Bulk-migrating-images-in-a-blog-post.md
+# Ex: ./imageMigration.sh _posts/2021-07-19-Bulk-migrating-images-in-a-blog-post.md
 
-postfile="_posts/$1"
+postfile="$1"
 
 imageUrls=($(grep -o -P '(?<=!\[)(?:[^\]]+)\]\(([^\)]+)' $postfile | grep -o -P 'http.*'))
 imageNames=($(for name in ${imageUrls[@]}; do echo $name | grep -o -P '[^\/]+\.[[:alnum:]]+$'; done))
