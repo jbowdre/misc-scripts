@@ -177,4 +177,5 @@ function handler($context, $inputs) {
             Write-Host "Result:`n" $runSatelliteScript.ScriptOutput "`n"            
         }
     }
+    Disconnect-ViServer -Server $vCenter -Force -Confirm:$false
 }
