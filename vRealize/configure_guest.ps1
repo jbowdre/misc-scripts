@@ -40,7 +40,7 @@ function handler($context, $inputs) {
     
     # Create vmtools connection to the VM 
     $vmName = $inputs.resourceNames[0]
-    Connect-ViServer $vCenter -User $vcUser -Password $vcPassword -Force
+    Connect-ViServer -Server $vCenter -User $vcUser -Password $vcPassword -Force
     $vm = Get-VM -Name $vmName
     Write-Host "Waiting for VM Tools to start..."
     if (-not (Wait-Tools -VM $vm -TimeoutSeconds 180)) {
