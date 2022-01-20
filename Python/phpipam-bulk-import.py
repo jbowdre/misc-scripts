@@ -254,7 +254,7 @@ def import_networks(filepath):
             network['vlan'] = row['VlanConfiguration'].split('VLAN ')[1]
           except:
             network['vlan'] = ''
-          network['vcenter'] = f"{(row['Uid'].split('@'))[1].split('.')[0]}"
+          network['vcenter'] = f"{(row['Uid'].split('@'))[1].split(':')[0].split('.')[0]}"
           networks.append(network)
       line_count += 1
     print(f'\nProcessed {line_count} lines.')
