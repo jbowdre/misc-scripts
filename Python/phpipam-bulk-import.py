@@ -24,9 +24,9 @@ remote_agent = False
 mapping_set = namedtuple('mapping_set', ['name', 'id'])
 
 #for testing only
-import urllib3
-urllib3.disable_warnings()
-check_cert = False
+# import urllib3
+# urllib3.disable_warnings()
+# check_cert = False
 
 def validate_input_is_not_empty(field, prompt):
   while True:
