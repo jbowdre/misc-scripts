@@ -24,9 +24,9 @@ remote_agent = False
 mapping_set = namedtuple('mapping_set', ['name', 'id'])
 
 #for testing only
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-check_cert = False
+# from requests.packages.urllib3.exceptions import InsecureRequestWarning
+# requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+# check_cert = False
 
 def validate_input_is_not_empty(field, prompt):
   while True:
@@ -234,7 +234,7 @@ def import_networks(filepath):
   print(f'Importing networks from {filepath}...')
   import csv
   import re
-  ipPattern = re.compile('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
+  ipPattern = re.compile('\d{1,3}\.\d{1,3}\.\d{1,3}\.[0-9xX]{1,3}')
   networks = []
   with open(filepath) as csv_file:
     reader = csv.DictReader(csv_file)
@@ -244,6 +244,8 @@ def import_networks(filepath):
       if line_count > 0:
         if(re.search(ipPattern, row['Name'])):
           network['subnet'] = re.findall(ipPattern, row['Name'])[0]
+          if network['subnet'].split('.')[-1].lower() == 'x':
+            network['subnet'] = network['subnet'].lower().replace('x', '0')
           network['name'] = row['Name']
           network['section'] = row['Name'].split('-')[0]
           if '/' in row['Name'][-3]:
