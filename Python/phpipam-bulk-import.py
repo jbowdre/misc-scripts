@@ -24,8 +24,8 @@ remote_agent = False
 mapping_set = namedtuple('mapping_set', ['name', 'id'])
 
 #for testing only
-# import urllib3
-# urllib3.disable_warnings()
+# from requests.packages.urllib3.exceptions import InsecureRequestWarning
+# requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 # check_cert = False
 
 def validate_input_is_not_empty(field, prompt):
@@ -43,7 +43,7 @@ def get_unique_values_for_key(key, list_of_dict):
 
 
 def get_id_from_sets(name, sets):
-  return [item.id for item in sets if name in item.name][0]
+  return [item.id for item in sets if name == item.name][0]
 
 
 def auth_session(uri, auth):
