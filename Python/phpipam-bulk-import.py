@@ -24,9 +24,9 @@ remote_agent = False
 mapping_set = namedtuple('mapping_set', ['name', 'id'])
 
 #for testing only
-# from requests.packages.urllib3.exceptions import InsecureRequestWarning
-# requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-# check_cert = False
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+check_cert = False
 
 def validate_input_is_not_empty(field, prompt):
   while True:
@@ -226,7 +226,7 @@ def create_subnet(uri, token, network):
   elif req.status_code == 409:
     print(f"[SUBNET_EXISTS] Subnet {network['subnet']}/{network['mask']} already exists.")
   else:
-    print(f"[ERROR] Problem creating subnet: {req.json()}")
+    print(f"[ERROR] Problem creating subnet {network['name']}: {req.json()}")
 
 
 def import_networks(filepath):
