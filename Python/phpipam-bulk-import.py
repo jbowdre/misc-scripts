@@ -1,7 +1,7 @@
 """
 This interactive script helps to import vSphere dvPortGroup networks into phpIPAM for monitoring IP usage.
 
-It is assumed that the dvPortGroups are named like '[Site]-[Purpose or description] [Network address]{/[mask]}':
+It is assumed that the dvPortGroups are named like '[Description] [Network address]{/[mask]}':
   Ex:
     LAB-Management 192.168.1.0
     BOW-Servers 172.16.10.0/26
