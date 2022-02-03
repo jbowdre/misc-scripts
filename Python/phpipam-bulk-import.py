@@ -23,11 +23,12 @@ created = 0
 remote_agent = False
 name_to_id = namedtuple('name_to_id', ['name', 'id'])
 
-#for testing only
+## for testing only:
 # from requests.packages.urllib3.exceptions import InsecureRequestWarning
 # requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 # check_cert = False
 
+## Makes sure input fields aren't blank.
 def validate_input_is_not_empty(field, prompt):
   while True:
     user_input = input(f'\n{prompt}:\n')
@@ -38,6 +39,8 @@ def validate_input_is_not_empty(field, prompt):
       return user_input
 
 
+## Takes in a list of dictionary items, extracts all the unique values for a given key,
+#  and returns a sorted list of those.
 def get_sorted_list_of_unique_values(key, list_of_dict):
   valueSet = set(sub[key] for sub in list_of_dict)
   valueList = list(valueSet)
@@ -45,12 +48,13 @@ def get_sorted_list_of_unique_values(key, list_of_dict):
   return valueList
 
 
+## Match names and IDs
 def get_id_from_sets(name, sets):
   return [item.id for item in sets if name == item.name][0]
 
 
+## Authenticate to phpIPAM endpoint and return an auth token
 def auth_session(uri, auth):
-  # authenticate to the API endpoint and retrieve an auth token
   print(f'Authenticating to {uri}...')
   try:
     req = requests.post(f'{uri}/user/', auth=auth, verify=check_cert)
@@ -64,11 +68,13 @@ def auth_session(uri, auth):
   return token
 
 
+## Find or create a remote scan agent for each region (vcenter)
 def get_agent_sets(uri, token, regions):
   agent_sets = []
 
   def create_agent_set(uri, token, name):
     import secrets
+    # generate a random secret to be used for identifying this agent
     payload = {
       'name': name,
       'type': 'mysql',
@@ -93,6 +99,7 @@ def get_agent_sets(uri, token, regions):
   return agent_sets
 
 
+## Find or create a section for each virtual datacenter
 def get_section(uri, token, section, parentSectionId):
 
   def create_section(uri, token, section, parentSectionId):
@@ -115,6 +122,7 @@ def get_section(uri, token, section, parentSectionId):
   return id
 
 
+## Find or create VLANs
 def get_vlan_sets(uri, token, vlans):
   vlan_sets = []
 
@@ -141,6 +149,7 @@ def get_vlan_sets(uri, token, vlans):
   return vlan_sets
 
 
+## Find or create nameserver configurations for each region
 def get_nameserver_sets(uri, token, regions):
 
   nameserver_sets = []
@@ -169,6 +178,7 @@ def get_nameserver_sets(uri, token, regions):
   return nameserver_sets
 
 
+## Find or create subnet for each dvPortGroup
 def create_subnet(uri, token, network):
 
   def update_nameserver_permissions(uri, token, network):
@@ -213,8 +223,8 @@ def create_subnet(uri, token, network):
     print(f"[ERROR] Problem creating subnet {network['name']}: {req.json()}")
 
 
+## Import list of networks from the specified CSV file
 def import_networks(filepath):
-  # import the list of networks from the specified csv file
   print(f'Importing networks from {filepath}...')
   import csv
   import re
@@ -248,7 +258,6 @@ def import_networks(filepath):
 
 
 def main():
-  # gather inputs
   import socket
   import getpass
   import argparse
@@ -260,7 +269,7 @@ def main():
   print("""\n\n
   This script helps to add vSphere networks to phpIPAM for IP address management. It is expected
   that the vSphere networks are configured as portgroups on distributed virtual switches and 
-  named like '[Site]-[Purpose] [Subnet IP]{/[mask]}' (ex: 'LAB-Servers 192.168.1.0'). The following PowerCLI
+  named like '[Description] [Subnet IP]{/[mask]}' (ex: 'LAB-Servers 192.168.1.0'). The following PowerCLI
   command can be used to export the networks from vSphere:
 
     Get-VDPortgroup | Select Name, Datacenter, VlanConfiguration, Uid | Export-Csv -NoTypeInformation ./networks.csv
@@ -269,6 +278,7 @@ def main():
   scan agent (default) or a new remote scan agent named for the source vCenter ('vcenter_name-agent').
   """)
 
+  # Accept CSV file as an argument to the script or prompt for input if necessary
   try:
     p = parser.parse_args()
     filepath = p.filepath
@@ -351,6 +361,7 @@ def main():
   # auth to phpIPAM
   token = auth_session(uri, auth)
 
+  # create nameserver entries
   nameserver_sets = get_nameserver_sets(uri, token, regions)
   vlan_sets = get_vlan_sets(uri, token, vlans)
   if remote_agent:
