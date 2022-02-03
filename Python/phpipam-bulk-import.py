@@ -24,9 +24,9 @@ remote_agent = False
 name_to_id = namedtuple('name_to_id', ['name', 'id'])
 
 #for testing only
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-check_cert = False
+# from requests.packages.urllib3.exceptions import InsecureRequestWarning
+# requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+# check_cert = False
 
 def validate_input_is_not_empty(field, prompt):
   while True:
