@@ -243,6 +243,8 @@ def import_networks(filepath):
           network['name'] = row['Name']
           if '/' in row['Name'][-3]:
             network['mask'] = row['Name'].split('/')[-1]
+          elif '_' in row['Name'][-3]:
+            network['mask'] = row['Name'].split('_')[-1]
           else:
             network['mask'] = '24'
           network['section'] = row['Datacenter']
@@ -266,24 +268,23 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("filepath", type=Path)
 
-  print("""\n\n
-  This script helps to add vSphere networks to phpIPAM for IP address management. It is expected
-  that the vSphere networks are configured as portgroups on distributed virtual switches and 
-  named like '[Description] [Subnet IP]{/[mask]}' (ex: 'LAB-Servers 192.168.1.0'). The following PowerCLI
-  command can be used to export the networks from vSphere:
-
-    Get-VDPortgroup | Select Name, Datacenter, VlanConfiguration, Uid | Export-Csv -NoTypeInformation ./networks.csv
-
-  Subnets added to phpIPAM will be automatically configured for monitoring either using the built-in
-  scan agent (default) or a new remote scan agent named for the source vCenter ('vcenter_name-agent').
-  """)
-
   # Accept CSV file as an argument to the script or prompt for input if necessary
   try:
     p = parser.parse_args()
     filepath = p.filepath
   except:
     # make sure filepath is a path to an actual file
+    print("""\n\n
+    This script helps to add vSphere networks to phpIPAM for IP address management. It is expected
+    that the vSphere networks are configured as portgroups on distributed virtual switches and 
+    named like '[Description] [Subnet IP]{/[mask]}' (ex: 'LAB-Servers 192.168.1.0'). The following PowerCLI
+    command can be used to export the networks from vSphere:
+
+      Get-VDPortgroup | Select Name, Datacenter, VlanConfiguration, Uid | Export-Csv -NoTypeInformation ./networks.csv
+
+    Subnets added to phpIPAM will be automatically configured for monitoring either using the built-in
+    scan agent (default) or a new remote scan agent for each vCenter.
+    """)
     while True:
       filepath = Path(validate_input_is_not_empty('Filepath', 'Path to CSV-formatted export from vCenter'))
       if filepath.exists():
