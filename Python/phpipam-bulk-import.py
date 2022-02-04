@@ -11,7 +11,7 @@ Networks can be exported from vSphere via PowerCLI:
   Get-VDPortgroup | Select Name, Datacenter, VlanConfiguration, Uid | Export-Csv -NoTypeInformation ./networks.csv
 
 Subnets added to phpIPAM will be automatically configured for monitoring either using the built-in scan agent (default)
-or a new remote scan agent named for the source vCenter ('vcenter_name-agent').
+or a new remote scan agent for each vCenter.
 
 """
 
